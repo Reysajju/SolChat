@@ -4,9 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="/logo.png" />
-  <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#8c52ff" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SolChat | Trillion-Year Security</title>
   <meta name="description"
     content="End-to-end encrypted messaging on Solana. Identity via wallet, messages via secure X25519 encryption." />
@@ -19,18 +17,12 @@
   <script>
     window.global = window;
   </script>
+  <script type="module" crossorigin src="/assets/index-BNRMz5MW.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DIIKlMY9.css">
 </head>
 
 <body>
   <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js');
-      });
-    }
-  </script>
 </body>
 
 </html>

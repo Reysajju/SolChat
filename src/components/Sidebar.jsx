@@ -151,14 +151,14 @@ const Sidebar = () => {
             <div className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm" onClick={toggleSidebar} />
 
             <div className={`
-                fixed md:relative inset-y-0 left-0 h-full flex flex-col 
+                fixed md:relative inset-y-0 left-0 h-[100dvh] flex flex-col 
                 bg-[#0b0c10] border-r border-white/5 
                 transition-all duration-300 ease-in-out z-40 md:z-10
                 ${isCollapsed ? 'w-20' : 'w-[85vw] sm:w-80'}
             `}>
 
                 {/* Header */}
-                <div className={`p-5 flex items-center ${isCollapsed ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
+                <div className={`p-4 md:p-5 flex items-center ${isCollapsed ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
                     <div className="flex items-center space-x-3">
                         <img src="/logo.png" alt="SolChat" className="w-9 h-9" />
                         {!isCollapsed && (
@@ -170,8 +170,8 @@ const Sidebar = () => {
 
                     <div className="flex items-center gap-1">
                         {!isCollapsed && (
-                            <button onClick={toggleSettings} className="p-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors">
-                                <Settings size={18} />
+                            <button onClick={toggleSettings} className="p-3 md:p-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors">
+                                <Settings size={20} className="md:w-[18px] md:h-[18px]" />
                             </button>
                         )}
                         {/* Desktop Collapse Toggle */}

@@ -285,24 +285,24 @@ const ChatWindow = () => {
     return (
         <div className="flex-1 flex flex-col bg-[#0f1115] relative overflow-hidden h-full">
             {/* Header */}
-            <div className="h-18 px-6 py-4 border-b border-white/5 bg-[#0f1115]/95 backdrop-blur-sm flex items-center justify-between shrink-0 z-20">
-                <div className="flex items-center space-x-4">
+            <div className="h-16 md:h-18 px-4 md:px-6 py-3 md:py-4 border-b border-white/5 bg-[#0f1115]/95 backdrop-blur-sm flex items-center justify-between shrink-0 z-20">
+                <div className="flex items-center space-x-3 md:space-x-4 ml-10 md:ml-0">
                     <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-semibold text-sm shadow-md">
+                        <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-semibold text-xs md:text-sm shadow-md">
                             {activeContact.username ? activeContact.username.slice(0, 2).toUpperCase() : activeContact.wallet_address.slice(0, 2)}
                         </div>
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#0f1115] rounded-full"></div>
+                        <div className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-emerald-500 border-2 border-[#0f1115] rounded-full"></div>
                     </div>
                     <div>
-                        <h2 className="text-gray-100 font-semibold text-base leading-tight">
+                        <h2 className="text-gray-100 font-semibold text-sm md:text-base leading-tight truncate max-w-[120px] sm:max-w-none">
                             {activeContact.username ? `@${activeContact.username}` : 'Unknown User'}
                         </h2>
                         <div className="flex items-center space-x-2 mt-0.5">
-                            <span className="text-[11px] text-gray-500 font-mono tracking-wide">
+                            <span className="text-[10px] md:text-[11px] text-gray-500 font-mono tracking-wide">
                                 {activeContact.wallet_address.slice(0, 4)}...{activeContact.wallet_address.slice(-4)}
                             </span>
-                            <span className="w-0.5 h-3 bg-gray-700 rounded-full"></span>
-                            <span className="text-[10px] text-emerald-500 flex items-center gap-1 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                            <span className="hidden sm:block w-0.5 h-3 bg-gray-700 rounded-full"></span>
+                            <span className="hidden sm:flex text-[10px] text-emerald-500 items-center gap-1 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
                                 <Lock size={8} /> Encrypted
                             </span>
                         </div>
@@ -333,27 +333,27 @@ const ChatWindow = () => {
             </div>
 
             {/* Input Area */}
-            <div className="p-5 bg-[#0f1115] border-t border-white/5 shrink-0 z-20">
+            <div className="p-3 md:p-5 bg-[#0f1115] border-t border-white/5 shrink-0 z-20">
                 <input
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
                     onChange={handleFileSelect}
                 />
-                <div className="flex items-end space-x-3 bg-[#1a1cf20] p-0 rounded-3xl relative">
-                    <div className="flex-1 bg-[#181a1e] rounded-2xl border border-white/5 focus-within:border-blue-500/30 focus-within:bg-[#1c1e24] transition-all flex items-center px-2 py-2 shadow-sm">
+                <div className="flex items-end space-x-2 md:space-x-3 bg-[#1a1cf20] p-0 rounded-3xl relative">
+                    <div className="flex-1 bg-[#181a1e] rounded-xl md:rounded-2xl border border-white/5 focus-within:border-blue-500/30 focus-within:bg-[#1c1e24] transition-all flex items-center px-1.5 md:px-2 py-1.5 md:py-2 shadow-sm">
                         <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="p-2.5 rounded-xl hover:bg-white/5 text-gray-400 hover:text-blue-400 transition-colors"
+                            className="p-2 md:p-2.5 rounded-xl hover:bg-white/5 text-gray-400 hover:text-blue-400 transition-colors"
                             title="Attach Secure File"
                         >
-                            <Paperclip size={20} />
+                            <Paperclip size={18} className="md:w-5 md:h-5" />
                         </button>
 
                         <input
                             type="text"
-                            className="flex-1 bg-transparent text-[15px] text-gray-200 placeholder-gray-600 px-3 py-2 focus:outline-none min-w-0"
-                            placeholder="Type a secure message..."
+                            className="flex-1 bg-transparent text-sm md:text-[15px] text-gray-200 placeholder-gray-600 px-2 md:px-3 py-1.5 md:py-2 focus:outline-none min-w-0"
+                            placeholder="Type a message..."
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -363,18 +363,18 @@ const ChatWindow = () => {
                             onClick={handleSendMessage}
                             disabled={isSending || !inputText.trim()}
                             className={`
-                                p-2.5 rounded-xl ml-2 transition-all duration-200 flex items-center justify-center
+                                p-2 md:p-2.5 rounded-lg md:rounded-xl ml-1 md:ml-2 transition-all duration-200 flex items-center justify-center
                                 ${inputText.trim()
-                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500 transform hover:scale-105'
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500'
                                     : 'bg-white/5 text-gray-600 cursor-not-allowed'}
                             `}
                         >
-                            <Send size={18} fill={inputText.trim() ? "currentColor" : "none"} />
+                            <Send size={16} className="md:w-[18px] md:h-[18px]" fill={inputText.trim() ? "currentColor" : "none"} />
                         </button>
                     </div>
                 </div>
-                <div className="text-center mt-2">
-                    <p className="text-[10px] text-gray-600">Messages are end-to-end encrypted. No one outside this chat can read them.</p>
+                <div className="text-center mt-1.5">
+                    <p className="text-[9px] md:text-[10px] text-gray-600">End-to-end encrypted • X25519</p>
                 </div>
             </div>
         </div>

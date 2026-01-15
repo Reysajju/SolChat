@@ -37,12 +37,12 @@ const LandingPage = ({ onStartChat, onNavigate }) => {
             </nav>
 
             {/* Hero Section */}
-            <section className="relative pt-40 px-6 max-w-7xl mx-auto min-h-screen flex flex-col justify-center">
-                <div className="grid md:grid-cols-2 gap-16 items-center">
+            <section className="relative pt-24 md:pt-40 px-6 max-w-7xl mx-auto min-h-[100dvh] flex flex-col justify-center">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
 
                     {/* Image Side (Left) */}
                     <motion.div
-                        initial={{ opacity: 0, x: -30 }}
+                        initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.8 }}
                         className="relative flex justify-center order-2 md:order-1"
@@ -86,13 +86,13 @@ const LandingPage = ({ onStartChat, onNavigate }) => {
                             Live on Solana Mainnet
                         </div>
 
-                        <h1 className="text-5xl md:text-7xl font-bold leading-[1.1] mb-8 tracking-tight text-white">
+                        <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold leading-[1.1] mb-6 md:mb-8 tracking-tight text-white">
                             The future of <br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">secure communication</span>
                         </h1>
-                        <p className="text-lg text-slate-400 mb-10 leading-relaxed max-w-lg">
+                        <p className="text-base md:text-lg text-slate-400 mb-8 md:mb-10 leading-relaxed max-w-lg">
                             Experience true privacy. SolChat combines the identity primitives of Solana with military-grade X25519 encryption.
-                            <br /><br />
+                            <br className="hidden md:block" /><br className="hidden md:block" />
                             No centralized databases. No phone numbers. Just you and your wallet.
                         </p>
 
