@@ -16,9 +16,7 @@ const LandingPage = ({ onStartChat, onNavigate }) => {
             <nav className="fixed w-full z-50 bg-[#0f172a]/90 backdrop-blur-md border-b border-white/5 shadow-sm transition-all">
                 <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
                     <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                            <Shield className="text-white" size={20} />
-                        </div>
+                        <img src="/logo.png" alt="SolChat Logo" className="w-10 h-10 hover:scale-110 transition-transform" />
                         <span className="text-2xl font-bold tracking-tight text-white">SolChat</span>
                     </div>
 

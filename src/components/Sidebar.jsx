@@ -160,9 +160,7 @@ const Sidebar = () => {
                 {/* Header */}
                 <div className={`p-5 flex items-center ${isCollapsed ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
                     <div className="flex items-center space-x-3">
-                        <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-900/40">
-                            <Zap size={20} className="text-white" fill="currentColor" />
-                        </div>
+                        <img src="/logo.png" alt="SolChat" className="w-9 h-9" />
                         {!isCollapsed && (
                             <h1 className="text-xl font-bold tracking-tight text-white font-sans">
                                 SolChat

@@ -12,6 +12,7 @@ const FAQPage = ({ onBack }) => {
                         <ArrowLeft size={20} className="text-slate-400" />
                         <span className="font-semibold text-slate-200">Back to Home</span>
                     </div>
+                    <img src="/logo.png" alt="SolChat" className="w-8 h-8 opacity-50" />
                 </div>
             </nav>
 

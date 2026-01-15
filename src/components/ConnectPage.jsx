@@ -9,9 +9,7 @@ const ConnectPage = ({ onBack }) => {
             {/* Simple Navbar */}
             <nav className="w-full h-24 flex items-center justify-between px-8 bg-[#0f172a] border-b border-white/5">
                 <div onClick={onBack} className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center">
-                        <Shield className="text-white" size={16} />
-                    </div>
+                    <img src="/logo.png" alt="SolChat Logo" className="w-8 h-8 hover:scale-110 transition-transform" />
                     <span className="font-bold tracking-tight text-white">SolChat</span>
                 </div>
 
