@@ -8,8 +8,8 @@
 
 body {
   background-color: #050508;
-  background-image: 
-    radial-gradient(circle at 15% 50%, rgba(20, 20, 30, 0.4), transparent 40%), 
+  background-image:
+    radial-gradient(circle at 15% 50%, rgba(20, 20, 30, 0.4), transparent 40%),
     radial-gradient(circle at 85% 30%, rgba(30, 40, 60, 0.2), transparent 40%);
   color: #e2e8f0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -20,7 +20,7 @@ body {
   .glass-panel {
     @apply backdrop-blur-xl bg-gray-900/40 border border-glass-border shadow-xl;
   }
-  
+
   .glass-button {
     @apply backdrop-blur-md bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-300;
   }
@@ -30,13 +30,37 @@ body {
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+@layer utilities {
+  .animate-gradient-x {
+    background-size: 200% 200%;
+    animation: gradient-x 6s ease infinite;
+  }
+}
+
+@keyframes gradient-x {
+  0% {
+    background-position: 0% 50%
+  }
+
+  50% {
+    background-position: 100% 50%
+  }
+
+  100% {
+    background-position: 0% 50%
+  }
 }

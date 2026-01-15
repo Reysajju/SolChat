@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'; // Keep this for the secondary button
 import { Shield, Zap, Lock, Globe, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 
-const LandingPage = ({ onConnect }) => {
+const LandingPage = () => {
+    const { setVisible } = useWalletModal();
+
     return (
-        <div className="min-h-screen bg-[#050508] text-white overflow-x-hidden">
+        <div className="min-h-screen bg-[#050508] text-white overflow-x-hidden selection:bg-blue-500/30">
             {/* Navbar */}
-            <nav className="fixed w-full z-50 bg-[#050508]/80 backdrop-blur-md border-b border-white/5">
+            <nav className="fixed w-full z-50 bg-[#050508]/10 backdrop-blur-lg border-b border-white/5 transition-all duration-300">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
                             <Shield size={18} className="text-white" />
                         </div>
                         <span className="text-xl font-bold tracking-tight">SolChat</span>
@@ -21,46 +24,80 @@ const LandingPage = ({ onConnect }) => {
                         <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
                     </div>
                     <div>
-                        {/* Wallet Button is the primary CTA */}
+                        {/* Secondary Connect Button */}
                         <div className="transform hover:scale-105 transition-transform">
-                            <WalletMultiButton />
+                            <WalletMultiButton style={{ height: '40px', fontSize: '14px', borderRadius: '10px', background: '#1f2229' }} />
                         </div>
                     </div>
                 </div>
             </nav>
 
             {/* Hero Section */}
-            <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 px-6">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-blue-600/20 blur-[120px] rounded-full opacity-30 pointer-events-none" />
+            <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 px-6 overflow-hidden">
+                {/* Dynamic Background Elements */}
+                <motion.div
+                    animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: [0.3, 0.5, 0.3],
+                    }}
+                    transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[800px] h-[500px] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none"
+                />
+                <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    className="absolute top-20 right-20 w-32 h-32 bg-cyan-500/10 blur-3xl rounded-full pointer-events-none"
+                />
 
                 <div className="max-w-5xl mx-auto text-center relative z-10">
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6 }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
                     >
-                        <span className="inline-block py-1 px-3 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold tracking-wide uppercase mb-6">
-                            V 1.0 Public Beta
-                        </span>
-                        <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-8">
+                        <motion.span
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.2 }}
+                            className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold tracking-wide uppercase mb-8 hover:bg-blue-500/20 transition-colors cursor-default"
+                        >
+                            <Zap size={12} fill="currentColor" /> V 1.0 Public Beta
+                        </motion.span>
+
+                        <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-8 tracking-tight">
                             Messaging with <br />
-                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400">
+                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400 animate-gradient-x">
                                 Trillion-Year Security
                             </span>
                         </h1>
-                        <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+
+                        <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-12 leading-relaxed">
                             End-to-end encrypted messaging built on Solana.
                             Your identity is your wallet. Your messages are yours alone.
                             No servers can read them. Not even us.
                         </p>
 
-                        <div className="flex flex-col md:flex-row items-center justify-center gap-4">
-                            <div className="scale-110">
-                                <WalletMultiButton />
-                            </div>
-                            <button className="px-8 py-3 rounded-md bg-[#1f2229] border border-white/5 text-gray-300 font-medium hover:bg-[#2a2d36] transition-colors">
-                                View Documentation
-                            </button>
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setVisible(true)}
+                                className="group relative px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl font-bold text-lg shadow-xl shadow-blue-500/20 hover:shadow-blue-500/40 transition-all overflow-hidden"
+                            >
+                                <span className="relative z-10 flex items-center gap-2">
+                                    Start Chatting Now
+                                    <MessageSquare size={20} className="group-hover:translate-x-1 transition-transform" />
+                                </span>
+                                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                            </motion.button>
+
+                            <motion.a
+                                href="#features"
+                                whileHover={{ scale: 1.05 }}
+                                className="px-8 py-4 rounded-xl bg-[#1f2229]/50 backdrop-blur-sm border border-white/5 text-gray-300 font-medium hover:bg-[#2a2d36] transition-colors flex items-center gap-2"
+                            >
+                                Learn More <ChevronDown size={16} />
+                            </motion.a>
                         </div>
                     </motion.div>
                 </div>
