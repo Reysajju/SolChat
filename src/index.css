@@ -7,18 +7,17 @@
 }
 
 body {
-  background-color: #050508;
+  background-color: #0f172a;
   background-image:
-    radial-gradient(circle at 15% 50%, rgba(20, 20, 30, 0.4), transparent 40%),
-    radial-gradient(circle at 85% 30%, rgba(30, 40, 60, 0.2), transparent 40%);
+    radial-gradient(circle at 15% 50%, rgba(30, 41, 59, 1), transparent 40%),
+    radial-gradient(circle at 85% 30%, rgba(15, 23, 42, 1), transparent 40%);
   color: #e2e8f0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  overflow: hidden;
 }
 
 @layer components {
   .glass-panel {
-    @apply backdrop-blur-xl bg-gray-900/40 border border-glass-border shadow-xl;
+    @apply backdrop-blur-xl bg-slate-900/40 border border-white/10 shadow-xl;
   }
 
   .glass-button {
