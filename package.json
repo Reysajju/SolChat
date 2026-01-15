@@ -21,12 +21,12 @@
     "lucide-react": "^0.468.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-helmet-async": "^2.0.4",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
-    "@esbuild/win32-x64": "^0.27.2",
     "@eslint/js": "^9.39.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
