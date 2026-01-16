@@ -8,9 +8,12 @@ const useStore = create(
             walletAddress: null,
             encryptionKeys: null, // { publicKey (base64 string), secretKey (Uint8Array) }
             userProfile: null, // { username, isSearchable }
+            isAuthReady: false, // Prevents queries before headers are set
+
             setWalletAddress: (address) => set({ walletAddress: address }),
             setEncryptionKeys: (keys) => set({ encryptionKeys: keys }),
             setUserProfile: (profile) => set({ userProfile: profile }),
+            setAuthReady: (ready) => set({ isAuthReady: ready }),
 
             // Contacts & Messages
             contacts: [], // List of users we can chat with
@@ -21,8 +24,14 @@ const useStore = create(
             setMessages: (messages) => set((state) => ({
                 messages: typeof messages === 'function' ? messages(state.messages) : messages
             })),
-            addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
+            addMessage: (msg) => set((state) => ({
+                messages: state.messages.some(m => m.id === msg.id) ? state.messages : [...state.messages, msg]
+            })),
             setActiveContact: (contact) => set({ activeContact: contact }),
+
+            // Sidebar Trigger
+            sidebarTrigger: 0,
+            refreshSidebar: () => set((state) => ({ sidebarTrigger: state.sidebarTrigger + 1 })),
 
             // UI State
             isSidebarOpen: true,
@@ -42,6 +51,7 @@ const useStore = create(
                     activeContact: null,
                     isSidebarOpen: true,
                     isSettingsOpen: false,
+                    isAuthReady: false,
                 });
                 localStorage.removeItem('solchat-session');
             },

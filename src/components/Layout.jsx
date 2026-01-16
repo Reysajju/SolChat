@@ -6,22 +6,31 @@ const Layout = ({ children }) => {
     const { isSidebarOpen, toggleSidebar } = useStore();
 
     return (
-        <div className="w-screen h-[100dvh] flex items-center justify-center p-0 sm:p-4 md:p-8 relative">
-            {/* Ambient Background Glows */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-900/20 rounded-full blur-[120px] animate-pulse-slow" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-900/20 rounded-full blur-[120px] animate-pulse-slow" style={{ animationDelay: '1.5s' }} />
+        <div className="w-screen h-[100dvh] flex flex-col md:flex-row bg-[var(--color-bg-primary)] relative overflow-hidden">
+            {/* Ambient Background Glows - Subtle */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] bg-blue-900/10 rounded-full blur-[100px] animate-pulse-slow" />
+                <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-purple-900/10 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
             </div>
 
-            {/* Mobile Menu Button - Moved to a more accessible spot and logic improved */}
-            <button
-                onClick={toggleSidebar}
-                className="fixed top-3 left-3 z-50 p-2.5 glass-panel rounded-xl md:hidden shadow-lg border-white/20"
-            >
-                <Menu size={20} className="text-white" />
-            </button>
+            {/* Mobile Header Bar */}
+            <div className="md:hidden h-14 flex items-center px-4 border-b border-white/5 bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm safe-top shrink-0 z-30">
+                <button
+                    onClick={toggleSidebar}
+                    className="touch-btn w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                    aria-label="Toggle menu"
+                >
+                    <Menu size={20} className="text-gray-300" />
+                </button>
+                <div className="flex-1 flex items-center justify-center">
+                    <img src="/logo.png" alt="SolChat" className="w-7 h-7" />
+                    <span className="ml-2 text-base font-semibold text-white">SolChat</span>
+                </div>
+                <div className="w-10" /> {/* Spacer for balance */}
+            </div>
 
-            <div className="w-full max-w-7xl h-full flex flex-col md:flex-row md:rounded-3xl overflow-hidden shadow-2xl relative z-0">
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-row overflow-hidden relative z-10">
                 {children}
             </div>
         </div>
@@ -29,4 +38,3 @@ const Layout = ({ children }) => {
 };
 
 export default Layout;
-

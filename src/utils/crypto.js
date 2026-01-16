@@ -29,29 +29,33 @@ export const generateKeysFromSignature = (signatureUint8) => {
     };
 };
 
-// 2. ENCRYPT MESSAGE (The Trillion Year Shield)
-export const encryptMessage = (sharedSecret, jsonMessage) => {
+// 2. ENCRYPT MESSAGE (Anonymous Box)
+// Hides the sender's identity by using an ephemeral keypair
+export const encryptAnonymous = (recipientPublicKeyBase64, jsonMessage) => {
+    const ephemeralKeyPair = nacl.box.keyPair();
+    const recipientPublicKeyUint8 = decodeBase64(recipientPublicKeyBase64);
     const nonce = nacl.randomBytes(nacl.box.nonceLength);
     const messageUint8 = decodeUTF8(JSON.stringify(jsonMessage));
 
-    // The Magic Box
-    const encrypted = nacl.box.after(messageUint8, nonce, sharedSecret);
+    const encrypted = nacl.box(messageUint8, nonce, recipientPublicKeyUint8, ephemeralKeyPair.secretKey);
 
     return {
         ciphertext: encodeBase64(encrypted),
-        nonce: encodeBase64(nonce)
+        nonce: encodeBase64(nonce),
+        ephemeralPublicKey: encodeBase64(ephemeralKeyPair.publicKey)
     };
 };
 
-// 3. DECRYPT MESSAGE
-export const decryptMessage = (sharedSecret, ciphertext, nonce) => {
+// 3. DECRYPT MESSAGE (Anonymous Box)
+export const decryptAnonymous = (mySecretKey, ephemeralPublicKeyBase64, ciphertext, nonce) => {
     try {
+        const ephemeralPublicKeyUint8 = decodeBase64(ephemeralPublicKeyBase64);
         const ciphertextUint8 = decodeBase64(ciphertext);
         const nonceUint8 = decodeBase64(nonce);
 
-        const decrypted = nacl.box.open.after(ciphertextUint8, nonceUint8, sharedSecret);
+        const decrypted = nacl.box.open(ciphertextUint8, nonceUint8, ephemeralPublicKeyUint8, mySecretKey);
 
-        if (!decrypted) return null; // Decryption failed (wrong key)
+        if (!decrypted) return null;
         return JSON.parse(encodeUTF8(decrypted));
     } catch (e) {
         console.error("Decryption error:", e);
@@ -59,7 +63,29 @@ export const decryptMessage = (sharedSecret, ciphertext, nonce) => {
     }
 };
 
-// 4. COMPUTE SHARED SECRET
+// 4. LEGACY: ENCRYPT MESSAGE (Standard Box - Keep for compatibility if needed elsewhere)
+export const encryptMessage = (sharedSecret, jsonMessage) => {
+    const nonce = nacl.randomBytes(nacl.box.nonceLength);
+    const messageUint8 = decodeUTF8(JSON.stringify(jsonMessage));
+    const encrypted = nacl.box.after(messageUint8, nonce, sharedSecret);
+    return { ciphertext: encodeBase64(encrypted), nonce: encodeBase64(nonce) };
+};
+
+// DECRYPT MESSAGE (Standard Box)
+export const decryptMessage = (sharedSecret, ciphertext, nonce) => {
+    try {
+        const ciphertextUint8 = decodeBase64(ciphertext);
+        const nonceUint8 = decodeBase64(nonce);
+        const decrypted = nacl.box.open.after(ciphertextUint8, nonceUint8, sharedSecret);
+        if (!decrypted) return null;
+        return JSON.parse(encodeUTF8(decrypted));
+    } catch (e) {
+        console.error("Decryption error:", e);
+        return null;
+    }
+};
+
+// 5. COMPUTE SHARED SECRET
 // We need to compute the shared secret between OUR Secret Key and THEIR Public Key
 export const computeSharedSecret = (mySecretKey, theirPublicKeyBase64) => {
     // Validate Public Key
@@ -81,34 +107,11 @@ export const computeSharedSecret = (mySecretKey, theirPublicKeyBase64) => {
     }
 };
 
-// 5. HYBRID FILE ENCRYPTION (Symmetric)
-// We encrypt large files with a random symmetric key (nacl.secretbox)
-// Then we encrypt that key with the shared secret (asymmetric)
-
-export const encryptFile = (fileUint8) => {
-    // 1. Generate Random Symmetric Key (32 bytes) & Nonce (24 bytes)
-    const fileKey = nacl.randomBytes(nacl.box.secretKeyLength);
-    const fileNonce = nacl.randomBytes(nacl.box.nonceLength);
-
-    // 2. Encrypt File Bytes
-    const encryptedFile = nacl.secretbox(fileUint8, fileNonce, fileKey);
-
-    return {
-        encryptedFile, // Uint8Array
-        fileKey: encodeBase64(fileKey),
-        fileNonce: encodeBase64(fileNonce)
-    };
-};
-
-export const decryptFile = (encryptedFileUint8, fileKeyBase64, fileNonceBase64) => {
-    try {
-        const key = decodeBase64(fileKeyBase64);
-        const nonce = decodeBase64(fileNonceBase64);
-
-        const decrypted = nacl.secretbox.open(encryptedFileUint8, nonce, key);
-        return decrypted; // Uint8Array or null
-    } catch (e) {
-        console.error("File decryption error:", e);
-        return null;
-    }
+// 6. METADATA MASKING (Blind Routing)
+// Create a SHA-256 hash of a wallet address for blind routing
+export const hashWalletAddress = async (walletAddress) => {
+    const msgUint8 = new TextEncoder().encode(walletAddress);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };

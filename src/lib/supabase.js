@@ -5,11 +5,12 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export let supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const updateSupabaseAuth = (walletAddress) => {
+export const updateSupabaseAuth = (walletAddress, walletHash) => {
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
         global: {
             headers: {
-                'x-wallet-address': walletAddress
+                'x-wallet-address': walletAddress,
+                'x-wallet-hash': walletHash
             }
         }
     });

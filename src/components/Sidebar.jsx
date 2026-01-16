@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import useStore from '../store/useStore';
 import { supabase } from '../lib/supabase';
-import { Search, User, Zap, Settings, X, LogOut } from 'lucide-react';
+import { Search, User, Settings, LogOut, X, PanelLeftClose } from 'lucide-react';
+import { hashWalletAddress, decryptAnonymous } from '../utils/crypto';
 
 const Sidebar = () => {
     const { disconnect } = useWallet();
     const {
         walletAddress,
+        encryptionKeys,
         userProfile,
         contacts,
         setContacts,
@@ -16,49 +18,150 @@ const Sidebar = () => {
         isSidebarOpen,
         toggleSidebar,
         toggleSettings,
-        logout
+        logout,
+        sidebarTrigger,
+        isAuthReady
     } = useStore();
 
     const handleLogout = async () => {
-        logout(); // Clear store & localStorage
-        await disconnect(); // Disconnect wallet
+        logout();
+        await disconnect();
     };
 
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [viewMode, setViewMode] = useState('recent'); // 'recent' or 'search'
+    const [viewMode, setViewMode] = useState('recent');
     const [recentChats, setRecentChats] = useState([]);
     const [unreadCounts, setUnreadCounts] = useState({});
-    const [isCollapsed, setIsCollapsed] = useState(false);
 
     // Fetch Recent Chats & Unread Counts
     useEffect(() => {
-        if (!walletAddress) return;
+        if (!walletAddress || !encryptionKeys || !isAuthReady) return;
 
         const fetchRecentAndUnreads = async () => {
             setLoading(true);
             try {
-                // 1. Fetch Recent Partners via RPC
-                const { data: recentData, error: recentError } = await supabase
-                    .rpc('get_chat_partners', { user_wallet: walletAddress });
+                const myHash = await hashWalletAddress(walletAddress);
+                const partnersMap = new Map();
+                const unreads = {};
 
-                if (recentError) throw recentError;
-                setRecentChats(recentData || []);
+                // Track already fetched profiles to avoid refetching
+                const fetchedProfiles = new Set();
 
-                // 2. Fetch Unread Counts
-                // Count messages where receiver is ME and status is NOT 'read'
-                const { data: unreadData, error: unreadError } = await supabase
-                    .from('messages')
-                    .select('sender_wallet')
-                    .eq('receiver_wallet', walletAddress)
-                    .neq('status', 'read');
+                let fetchedCount = 0;
+                let from = 0;
+                const CHUNK_SIZE = 1000;
+                // DRAMATICALLY INCREASED LIMIT: 
+                // Scan up to 100k messages to find old chats.
+                // Since we update incrementally, user sees recent ones instantly.
+                const MAX_Scan = 100000;
 
-                if (!unreadError && unreadData) {
-                    const counts = {};
-                    unreadData.forEach(msg => {
-                        counts[msg.sender_wallet] = (counts[msg.sender_wallet] || 0) + 1;
-                    });
-                    setUnreadCounts(counts);
+                // Deep Scan Loop
+                // Removed "&& partnersMap.size < MIN_CONTACTS" so we find EVERYONE
+                console.log(`[Sidebar] Starting chat scan. From: ${from}, Target Max: ${MAX_Scan}`);
+
+                while (fetchedCount < MAX_Scan) {
+                    const { data: messages, error: msgError } = await supabase
+                        .from('messages')
+                        .select('*')
+                        .eq('receiver_hash', myHash)
+                        .order('created_at', { ascending: false })
+                        .range(from, from + CHUNK_SIZE - 1);
+
+                    if (msgError) {
+                        console.error("[Sidebar] Supabase error:", msgError);
+                        throw msgError;
+                    }
+
+                    if (!messages || messages.length === 0) {
+                        console.log("[Sidebar] No more messages found in DB.");
+                        break;
+                    }
+
+                    let foundNewInChunk = false;
+                    let successCount = 0;
+
+                    for (const msg of messages) {
+                        try {
+                            const decrypted = decryptAnonymous(
+                                encryptionKeys.secretKey,
+                                msg.ephemeral_public_key,
+                                msg.encrypted_content,
+                                msg.nonce
+                            );
+
+                            if (!decrypted) {
+                                // console.warn("[Sidebar] Decryption returned null for msg:", msg.id);
+                                continue;
+                            }
+
+                            const partnerWallet = decrypted.sender === walletAddress
+                                ? decrypted.recipient
+                                : decrypted.sender;
+
+                            if (!partnerWallet) continue;
+
+                            successCount++;
+
+                            if (!partnersMap.has(partnerWallet)) {
+                                console.log(`[Sidebar] Found new contact: ${partnerWallet.slice(0, 8)}...`);
+                                partnersMap.set(partnerWallet, {
+                                    wallet_address: partnerWallet,
+                                    last_msg: msg.created_at,
+                                    last_text: decrypted.text,
+                                    unread_count: 0
+                                });
+                                foundNewInChunk = true;
+                            }
+
+                            if (msg.status !== 'read' && decrypted.sender !== walletAddress) {
+                                unreads[partnerWallet] = (unreads[partnerWallet] || 0) + 1;
+                            }
+                        } catch (err) {
+                            // Skip undecryptable messages silently
+                            // console.error("[Sidebar] Decryption exception:", err);
+                            continue;
+                        }
+                    }
+
+                    console.log(`[Sidebar] Chunk ${from}-${from + CHUNK_SIZE}: Decrypted ${successCount}/${messages.length} successfully. Partners found so far: ${partnersMap.size}`);
+
+                    // Incremental Update: If we found new partners in this chunk, 
+                    // fetch their profiles and update UI immediately.
+                    if (foundNewInChunk) {
+                        const allWallets = Array.from(partnersMap.keys());
+                        const walletsToFetch = allWallets.filter(w => !fetchedProfiles.has(w));
+
+                        if (walletsToFetch.length > 0) {
+                            const { data: profiles, error: profileError } = await supabase
+                                .from('users')
+                                .select('wallet_address, username, public_encryption_key')
+                                .in('wallet_address', walletsToFetch);
+
+                            if (!profileError && profiles) {
+                                profiles.forEach(profile => {
+                                    const partnerData = partnersMap.get(profile.wallet_address);
+                                    if (partnerData) {
+                                        partnersMap.set(profile.wallet_address, { ...partnerData, ...profile });
+                                    }
+                                    fetchedProfiles.add(profile.wallet_address);
+                                });
+                            }
+                        }
+
+                        // Update State Incrementally
+                        const sortedChats = Array.from(partnersMap.values())
+                            .sort((a, b) => new Date(b.last_msg) - new Date(a.last_msg));
+
+                        setRecentChats(sortedChats);
+                        setUnreadCounts({ ...unreads });
+                    }
+
+                    fetchedCount += messages.length;
+                    from += CHUNK_SIZE;
+
+                    // Small delay to allow UI to render if loop is tight, though await mostly handles this
+                    await new Promise(r => setTimeout(r, 0));
                 }
 
             } catch (err) {
@@ -68,31 +171,33 @@ const Sidebar = () => {
             }
         };
 
+        const setupSubscription = async () => {
+            const myHash = await hashWalletAddress(walletAddress);
+            const channel = supabase
+                .channel('sidebar-updates')
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'messages',
+                    filter: `receiver_hash=eq.${myHash}`
+                }, () => {
+                    fetchRecentAndUnreads();
+                })
+                .subscribe();
+
+            return channel;
+        };
+
+        const channelPromise = setupSubscription();
         fetchRecentAndUnreads();
 
-        // Subscribe to new messages to update unread counts/recent list real-time
-        const channel = supabase
-            .channel('sidebar-updates')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-                const newMsg = payload.new;
-                if (newMsg.receiver_wallet === walletAddress || newMsg.sender_wallet === walletAddress) {
-                    fetchRecentAndUnreads();
-                }
-            })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
-                // Update if status changes (e.g. read)
-                if (payload.new.receiver_wallet === walletAddress) {
-                    fetchRecentAndUnreads();
-                }
-            })
-            .subscribe();
+        return () => {
+            channelPromise.then(ch => ch && supabase.removeChannel(ch));
+        };
 
-        return () => supabase.removeChannel(channel);
+    }, [walletAddress, encryptionKeys, sidebarTrigger, isAuthReady]);
 
-    }, [walletAddress]);
-
-
-    // Search Logic (same as before but updates 'contacts' state)
+    // Search Logic
     useEffect(() => {
         const timer = setTimeout(async () => {
             if (!searchTerm.trim()) {
@@ -120,196 +225,214 @@ const Sidebar = () => {
         return () => clearTimeout(timer);
     }, [searchTerm, walletAddress, setContacts]);
 
-
     const handleContactSelect = (contact) => {
         setActiveContact(contact);
-
-        // Clear unread count for this contact immediately (optimistic update)
-        // The actual status update happens in ChatWindow when messages are marked as read
         setUnreadCounts(prev => {
             const updated = { ...prev };
             delete updated[contact.wallet_address];
             return updated;
         });
-
-        // Mobile: Close sidebar
+        // Close sidebar on mobile
         if (window.innerWidth < 768) {
             toggleSidebar();
         }
     };
 
-    const toggleCollapse = () => setIsCollapsed(!isCollapsed);
-
-    // Filtered list to display
     const displayList = viewMode === 'search' ? contacts : recentChats;
 
-    if (!isSidebarOpen) return null;
+    // Calculate total unread
+    const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
     return (
         <>
             {/* Mobile Overlay */}
-            <div className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm" onClick={toggleSidebar} />
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm animate-fade-in"
+                    onClick={toggleSidebar}
+                />
+            )}
 
+            {/* Sidebar */}
             <div className={`
-                fixed md:relative inset-y-0 left-0 h-[100dvh] flex flex-col 
-                bg-[#0b0c10] border-r border-white/5 
-                transition-all duration-300 ease-in-out z-40 md:z-10
-                ${isCollapsed ? 'w-20' : 'w-[85vw] sm:w-80'}
+                w-[85vw] max-w-[320px]
+                ${isSidebarOpen
+                    ? 'translate-x-0 md:w-80 lg:w-96 border-r border-white/5'
+                    : '-translate-x-full md:translate-x-0 md:w-0 md:border-none md:overflow-hidden'}
+                bg-[var(--color-bg-secondary)]
+                flex flex-col h-full
+                transition-all duration-300 ease-in-out
+                fixed md:relative inset-y-0 left-0 z-50 md:z-10
             `}>
-
                 {/* Header */}
-                <div className={`p-4 md:p-5 flex items-center ${isCollapsed ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
-                    <div className="flex items-center space-x-3">
-                        <img src="/logo.png" alt="SolChat" className="w-9 h-9" />
-                        {!isCollapsed && (
-                            <h1 className="text-xl font-bold tracking-tight text-white font-sans">
-                                SolChat
-                            </h1>
-                        )}
+                <div className="h-16 px-4 flex items-center justify-between border-b border-white/5 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <img src="/logo.png" alt="SolChat" className="w-8 h-8" />
+                        <h1 className="text-lg font-bold text-white hidden sm:block">SolChat</h1>
                     </div>
-
                     <div className="flex items-center gap-1">
-                        {!isCollapsed && (
-                            <button onClick={toggleSettings} className="p-3 md:p-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors">
-                                <Settings size={20} className="md:w-[18px] md:h-[18px]" />
-                            </button>
-                        )}
-                        {/* Desktop Collapse Toggle */}
-                        <button onClick={toggleCollapse} className="hidden md:flex p-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors">
-                            {isCollapsed ? <Search size={20} /> : <div className="w-1 h-4 bg-gray-700 rounded-full group-hover:bg-gray-500 transition-colors"></div>}
+                        <button
+                            onClick={toggleSettings}
+                            className="touch-btn w-10 h-10 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+                        >
+                            <Settings size={18} />
+                        </button>
+                        <button
+                            onClick={toggleSidebar}
+                            className="touch-btn w-10 h-10 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white transition-colors hidden md:flex items-center justify-center"
+                            title="Collapse Sidebar"
+                        >
+                            <PanelLeftClose size={18} />
+                        </button>
+                        <button
+                            onClick={toggleSidebar}
+                            className="touch-btn w-10 h-10 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white transition-colors md:hidden"
+                        >
+                            <X size={18} />
                         </button>
                     </div>
                 </div>
 
-                {/* Search Bar - Hide if collapsed */}
-                {!isCollapsed && (
-                    <div className="px-5 mb-2">
-                        <div className="relative group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-blue-500 transition-colors w-4 h-4" />
-                            <input
-                                type="text"
-                                placeholder="Search people..."
-                                className="w-full bg-[#16181d] text-[13px] py-3 pl-10 pr-4 rounded-xl border border-transparent focus:border-blue-500/20 focus:bg-[#1a1c22] focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all text-gray-200 placeholder-gray-600 font-medium"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
+                {/* Search */}
+                <div className="p-4 shrink-0">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Search people..."
+                            className="input-field pl-10 h-11"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
-                )}
+                </div>
 
-                {/* List */}
-                <div className="flex-1 overflow-y-auto px-3 space-y-1 py-4 scrollbar-hide">
+                {/* Chat List */}
+                <div className="flex-1 overflow-y-auto px-2 scrollbar-hide">
                     {loading ? (
-                        <div className="flex justify-center mt-10"><div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>
+                        <div className="flex justify-center py-12">
+                            <div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                        </div>
                     ) : displayList.length === 0 ? (
-                        !isCollapsed && <div className="text-center text-xs text-gray-600 mt-10 font-medium">No conversations found</div>
+                        <div className="text-center py-12">
+                            <p className="text-sm text-gray-500">
+                                {viewMode === 'search' ? 'No users found' : 'No conversations yet'}
+                            </p>
+                            <p className="text-xs text-gray-600 mt-1">
+                                {viewMode === 'recent' && 'Search for someone to start chatting'}
+                            </p>
+                        </div>
                     ) : (
-                        displayList.map((item) => {
-                            const contact = viewMode === 'recent' ? item : item;
-                            const unread = unreadCounts[contact.wallet_address] || 0;
-                            const isActive = activeContact?.wallet_address === contact.wallet_address;
+                        <div className="space-y-1 py-2">
+                            {displayList.map((contact) => {
+                                const unread = unreadCounts[contact.wallet_address] || 0;
+                                const isActive = activeContact?.wallet_address === contact.wallet_address;
 
-                            return (
-                                <div
-                                    key={contact.wallet_address}
-                                    onClick={() => handleContactSelect(contact)}
-                                    className={`
-                                        relative group flex items-center p-3 rounded-xl cursor-pointer transition-all duration-200
-                                        ${isActive ? 'bg-[#1c1f26] border border-white/5 shadow-sm' : 'border border-transparent hover:bg-[#16181d]'}
-                                        ${isCollapsed ? 'justify-center' : ''}
-                                    `}
-                                >
-                                    {/* Avatar */}
-                                    <div className="relative">
-                                        <div className={`
-                                            w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold font-sans transition-colors
+                                return (
+                                    <button
+                                        key={contact.wallet_address}
+                                        onClick={() => handleContactSelect(contact)}
+                                        className={`
+                                            w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200
                                             ${isActive
-                                                ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md'
-                                                : 'bg-[#1f2229] text-gray-400 group-hover:bg-[#252830] group-hover:text-gray-300'}
-                                        `}>
-                                            {contact.username ? contact.username.slice(0, 2).toUpperCase() : contact.wallet_address.slice(0, 2)}
+                                                ? 'bg-blue-600/10 border border-blue-500/20'
+                                                : 'hover:bg-white/5 border border-transparent'}
+                                        `}
+                                    >
+                                        {/* Avatar */}
+                                        <div className="relative shrink-0">
+                                            <div className={`
+                                                w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold
+                                                ${isActive
+                                                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'
+                                                    : 'bg-[var(--color-bg-elevated)] text-gray-400'}
+                                            `}>
+                                                {contact.username
+                                                    ? contact.username.slice(0, 2).toUpperCase()
+                                                    : contact.wallet_address.slice(0, 2)}
+                                            </div>
+                                            {/* Online indicator */}
+                                            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[var(--color-bg-secondary)] rounded-full flex items-center justify-center">
+                                                <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                            </div>
                                         </div>
-                                        {/* Online Indicator (Mock) */}
-                                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#0b0c10] rounded-full flex items-center justify-center">
-                                            <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                                        </div>
-                                    </div>
 
-                                    {/* Info - Hide if collapsed */}
-                                    {!isCollapsed && (
-                                        <div className="ml-3.5 flex-1 min-w-0">
-                                            <div className="flex justify-between items-baseline mb-0.5">
-                                                <span className={`text-[14px] font-semibold truncate ${isActive ? 'text-gray-100' : 'text-gray-300 group-hover:text-gray-200'}`}>
-                                                    {contact.username ? `@${contact.username}` : 'Unknown'}
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0 text-left">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className={`text-sm font-medium truncate ${isActive ? 'text-white' : 'text-gray-200'}`}>
+                                                    {contact.username ? `@${contact.username}` : `${contact.wallet_address.slice(0, 6)}...`}
                                                 </span>
                                                 {contact.last_msg && (
-                                                    <span className="text-[10px] text-gray-600 font-medium">
-                                                        {new Date(contact.last_msg).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    <span className="text-[10px] text-gray-500 shrink-0">
+                                                        {formatTime(contact.last_msg)}
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-xs text-gray-500 font-mono truncate max-w-[140px] opacity-80">
-                                                    {contact.wallet_address.slice(0, 4)}...{contact.wallet_address.slice(-4)}
+                                            <div className="flex items-center justify-between gap-2 mt-0.5">
+                                                <span className="text-xs text-gray-500 truncate">
+                                                    {contact.last_text
+                                                        ? contact.last_text.slice(0, 30) + (contact.last_text.length > 30 ? '...' : '')
+                                                        : `${contact.wallet_address.slice(0, 4)}...${contact.wallet_address.slice(-4)}`}
                                                 </span>
-                                                {/* Unread Badge */}
                                                 {unread > 0 && (
-                                                    <div className="bg-blue-600 text-white text-[10px] font-bold px-1.5 h-4 min-w-[18px] flex items-center justify-center rounded-full shadow-sm shadow-blue-900/20">
-                                                        {unread}
-                                                    </div>
+                                                    <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                                                        {unread > 99 ? '99+' : unread}
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>
-                                    )}
-
-                                    {/* Collapsed Unread Dot */}
-                                    {isCollapsed && unread > 0 && (
-                                        <div className="absolute top-0 right-0 w-3.5 h-3.5 bg-blue-600 border-2 border-[#0b0c10] rounded-full"></div>
-                                    )}
-                                </div>
-                            );
-                        })
+                                    </button>
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
 
-                {/* Footer / User Profile */}
-                <div className={`p-4 border-t border-white/5 bg-[#0e1014] ${isCollapsed ? 'flex justify-center' : ''}`}>
-                    {!isCollapsed ? (
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3 flex-1 min-w-0">
-                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-gray-700 to-gray-800 border border-white/5 flex items-center justify-center">
-                                    <User size={16} className="text-gray-400" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-semibold text-gray-300 tracking-wide">
-                                        {userProfile?.username ? `@${userProfile.username}` : 'Connected'}
-                                    </p>
-                                    <p className="text-[10px] text-gray-600 truncate font-mono mt-0.5">
-                                        {walletAddress ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}` : ''}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={handleLogout}
-                                className="p-2 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
-                                title="Logout"
-                            >
-                                <LogOut size={16} />
-                            </button>
+                {/* Footer - User Profile */}
+                <div className="p-4 border-t border-white/5 safe-bottom shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center shrink-0">
+                            <User size={16} className="text-gray-400" />
                         </div>
-                    ) : (
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-200 truncate">
+                                {userProfile?.username ? `@${userProfile.username}` : 'Connected'}
+                            </p>
+                            <p className="text-[10px] text-gray-500 font-mono truncate">
+                                {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : ''}
+                            </p>
+                        </div>
                         <button
                             onClick={handleLogout}
-                            className="w-9 h-9 rounded-full bg-[#1f2229] flex items-center justify-center group cursor-pointer hover:bg-red-500/10 transition-colors"
+                            className="touch-btn w-10 h-10 rounded-xl hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
                             title="Logout"
                         >
-                            <LogOut size={16} className="text-gray-400 group-hover:text-red-400" />
+                            <LogOut size={16} />
                         </button>
-                    )}
+                    </div>
                 </div>
             </div>
         </>
     );
 };
+
+// Helper function to format time
+function formatTime(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (days === 0) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (days === 1) {
+        return 'Yesterday';
+    } else if (days < 7) {
+        return date.toLocaleDateString([], { weekday: 'short' });
+    } else {
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+}
 
 export default Sidebar;

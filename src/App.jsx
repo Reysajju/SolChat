@@ -8,7 +8,7 @@ import { HelmetProvider } from 'react-helmet-async';
 
 import { supabase } from './lib/supabase';
 import useStore from './store/useStore';
-import { generateKeysFromSignature } from './utils/crypto';
+import { generateKeysFromSignature, hashWalletAddress } from './utils/crypto';
 import Layout from './components/Layout';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
@@ -34,7 +34,8 @@ function Content() {
     userProfile,
     setUserProfile,
     isSettingsOpen,
-    setSettingsOpen
+    setSettingsOpen,
+    setAuthReady
   } = useStore();
 
   const [isSigning, setIsSigning] = useState(false);
@@ -58,7 +59,9 @@ function Content() {
         if (walletAddress === currentWallet && encryptionKeys) {
           // Session exists and matches - restore Supabase auth
           const { updateSupabaseAuth } = await import('./lib/supabase');
-          updateSupabaseAuth(currentWallet);
+          const walletHash = await hashWalletAddress(currentWallet);
+          updateSupabaseAuth(currentWallet, walletHash);
+          setAuthReady(true);
           console.log('Session restored for:', currentWallet);
         } else if (walletAddress && walletAddress !== currentWallet) {
           // Different wallet connected - clear old session
@@ -91,7 +94,9 @@ function Content() {
 
       // 0. Update Supabase Client with Headers for RLS
       const { updateSupabaseAuth } = await import('./lib/supabase');
-      updateSupabaseAuth(publicKey.toBase58());
+      const walletHash = await hashWalletAddress(publicKey.toBase58());
+      updateSupabaseAuth(publicKey.toBase58(), walletHash);
+      setAuthReady(true);
 
       // Register/Update User in Supabase
       const { data, error } = await supabase
