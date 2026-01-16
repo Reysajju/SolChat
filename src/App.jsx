@@ -9,6 +9,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { supabase } from './lib/supabase';
 import useStore from './store/useStore';
 import { generateKeysFromSignature, hashWalletAddress } from './utils/crypto';
+import { Analytics } from "@vercel/analytics/react";
 import Layout from './components/Layout';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
@@ -234,6 +235,7 @@ const App = () => {
         <WalletProvider wallets={wallets} autoConnect>
           <WalletModalProvider>
             <Content />
+            <Analytics />
           </WalletModalProvider>
         </WalletProvider>
       </ConnectionProvider>
